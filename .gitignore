@@ -1,0 +1,27 @@
+# Secrets (keep the placeholder template)
+.env
+.env.*
+!.env.example
+
+# Dataset and training outputs (large, never committed)
+data/
+runs/
+checkpoints/
+*.pt
+*.pth
+*.pkl
+*.pickle
+
+# Python environment and caches
+.venv/
+__pycache__/
+.ipynb_checkpoints/
+.pytest_cache/
+
+# Editor / OS files
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Personal Claude Code settings
+.claude/settings.local.json
