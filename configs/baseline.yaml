@@ -1,0 +1,21 @@
+# Baseline experiment config (PRD section 7.3). Values are placeholders until M3-M5.
+experiment_name: baseline
+seed: 42
+
+data:
+  root: null            # path to the OpenABC-D folder; set per machine (local or Kaggle)
+  designs: []           # start with 3-4 small/medium designs (chosen in M2)
+  split: random         # random | by_design | leave_one_design_out
+  target_mode: raw      # raw | ratio (ratio is tested in experiment 1)
+
+model:
+  graph_encoder: gcn    # gcn | gin | sage
+  graph_layers: 3
+  recipe_encoder: cnn   # cnn | transformer
+  hidden_dim: 64
+
+training:
+  lr: 0.001
+  batch_size: 32
+  max_epochs: 100
+  early_stopping_patience: 10

@@ -1,0 +1,13 @@
+# Installed and used now (M1)
+numpy
+pyyaml
+pytest
+
+# Added when each milestone needs them (ask before installing):
+# torch               # M3; on Kaggle use the preinstalled version
+# torch_geometric     # M3; must match the torch/CUDA version
+# pandas              # M2
+# scipy               # M5 (kendalltau)
+# scikit-learn        # M3
+# matplotlib          # M5
+# tqdm                # M5
