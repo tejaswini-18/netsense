@@ -5,6 +5,8 @@
 
 # Dataset and training outputs (large, never committed)
 data/
+OPENABC2_DATASET/
+*.zip
 runs/
 checkpoints/
 *.pt
