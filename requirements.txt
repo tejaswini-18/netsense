@@ -1,13 +1,20 @@
-# Installed and used now (M1)
+# Core (M1)
 numpy
 pyyaml
 pytest
 
+# Data loading and exploration (M2)
+# torch: locally installed CPU build via
+#   pip install torch --index-url https://download.pytorch.org/whl/cpu
+# On Kaggle, keep the preinstalled GPU build.
+torch
+torch_geometric
+# pandas 3.1.1 DLLs are blocked by Windows Smart App Control on the dev machine; 2.3.3 loads fine.
+pandas==2.3.3
+ipykernel             # lets Jupyter notebooks use this .venv
+
 # Added when each milestone needs them (ask before installing):
-# torch               # M3; on Kaggle use the preinstalled version
-# torch_geometric     # M3; must match the torch/CUDA version
-# pandas              # M2
 # scipy               # M5 (kendalltau)
 # scikit-learn        # M3
-# matplotlib          # M5
+# matplotlib          # M2/M5 (plots)
 # tqdm                # M5
