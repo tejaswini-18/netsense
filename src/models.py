@@ -1,6 +1,6 @@
 """Graph encoders, recipe encoders and the full QoR model (PRD sections 7.3 and 7.4).
 
-Input:  a batch from src.data.QoRDataset (graphs + recipes)
+Input:  a QoRBatch from src.data.make_loader (each distinct design graph once + one recipe per sample)
 Output: [batch_size, num_targets] standardised predictions (e.g. AND count and delay)
 Every choice is made in the 'model' section of a config (see build_model).
 """
@@ -116,7 +116,10 @@ class QoRModel(nn.Module):
     def forward(self, batch):
         parts = []
         if self.graph_encoder is not None:
-            parts.append(self.graph_encoder(batch.x, batch.edge_index, batch.batch))
+            g = batch.graphs
+            # One vector per distinct design graph, then copied to every sample of that design
+            per_graph = self.graph_encoder(g.x, g.edge_index, g.batch)
+            parts.append(per_graph[batch.graph_index])
         if self.recipe_encoder is not None:
             parts.append(self.recipe_encoder(batch.recipe))
         return self.head(torch.cat(parts, dim=1))

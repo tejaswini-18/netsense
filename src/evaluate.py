@@ -74,22 +74,33 @@ def top_k_overlap(pred, true, designs, k=10):
     return overlaps
 
 
-def compute_metrics(out, scaler, mode, target_names, k=10):
-    """All metrics for one prediction run, as a flat dict (easy to write to CSV/JSON).
+def metrics_from_real(pred, true, designs, target_names, k=10):
+    """MAPE, Kendall's tau and top-k overlap from real-unit arrays pred/true [N, T].
 
-    Keys: loss (MSE on standardised values), and per target t: mape_t, tau_t, top{k}_t,
-    plus per-design tau in tau_t_by_design.
+    Keys per target t: mape_t, tau_t (mean over designs), top{k}_t, tau_t_by_design.
+    A prediction that is constant within a design (a reference guess) has no tau: it is NaN.
     """
-    metrics = {"loss": float(torch.nn.functional.mse_loss(out["pred"], out["y"]))}
-    pred = to_real(out["pred"], out["base"], scaler, mode).numpy()
-    true = to_real(out["y"], out["base"], scaler, mode).numpy()
+    metrics = {}
     for j, t in enumerate(target_names):
-        taus = kendall_tau_per_design(pred[:, j], true[:, j], out["design"])
-        tops = top_k_overlap(pred[:, j], true[:, j], out["design"], k)
+        taus = kendall_tau_per_design(pred[:, j], true[:, j], designs)
+        tops = top_k_overlap(pred[:, j], true[:, j], designs, k)
         metrics[f"mape_{t}"] = mape(pred[:, j], true[:, j])
         metrics[f"tau_{t}"] = float(np.mean(list(taus.values()))) if taus else float("nan")
         metrics[f"top{k}_{t}"] = float(np.mean(list(tops.values()))) if tops else float("nan")
         metrics[f"tau_{t}_by_design"] = taus
+    return metrics
+
+
+def compute_metrics(out, scaler, mode, target_names, k=10):
+    """All metrics for one prediction run, as a flat dict (easy to write to CSV/JSON).
+
+    Keys: loss (MSE on standardised values) plus everything from metrics_from_real.
+    Returns (metrics, pred, true) with pred/true in real units.
+    """
+    pred = to_real(out["pred"], out["base"], scaler, mode).numpy()
+    true = to_real(out["y"], out["base"], scaler, mode).numpy()
+    metrics = {"loss": float(torch.nn.functional.mse_loss(out["pred"], out["y"]))}
+    metrics.update(metrics_from_real(pred, true, out["design"], target_names, k))
     return metrics, pred, true
 
 

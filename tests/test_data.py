@@ -6,12 +6,11 @@ The second group needs the real dataset and is skipped without it.
 
 import pytest
 import torch
-from torch_geometric.loader import DataLoader
 
 from src.data import (NUM_COMMANDS, NUM_NODE_FEATURES, NUM_RECIPES, RECIPE_LENGTH, TargetScaler,
                       build_datasets, compute_targets, load_design_graph, load_labels, load_recipes,
                       load_split, make_by_design_split, make_leave_one_design_out_splits,
-                      make_random_split, save_split, to_real_scale)
+                      make_loader, make_random_split, save_split, to_real_scale)
 
 DESIGNS = ["i2c", "spi", "fir", "wb_dma"]
 
@@ -133,14 +132,18 @@ def built(data_root, tmp_path_factory):
 
 def test_dataloader_batch_has_expected_shapes(built):
     datasets, _, _ = built
-    batch = next(iter(DataLoader(datasets["train"], batch_size=8)))
-    assert batch.num_graphs == 8
+    batch = next(iter(make_loader(datasets["train"], batch_size=8, shuffle=True)))
+    assert len(batch) == 8
     assert batch.recipe.shape == (8, RECIPE_LENGTH)
     assert batch.y.shape == (8, 2)
     assert batch.base.shape == (8, 2)
-    assert batch.x.shape[1] == NUM_NODE_FEATURES
+    assert batch.graphs.x.shape[1] == NUM_NODE_FEATURES
     assert len(batch.design) == 8
     assert not torch.isnan(batch.y).any()
+    # Each distinct design graph is in the batch exactly once, and graph_index points to the right one
+    distinct = list(dict.fromkeys(batch.design))
+    assert batch.graphs.num_graphs == len(distinct)
+    assert [distinct[k] for k in batch.graph_index.tolist()] == batch.design
 
 
 def test_scaler_is_fitted_on_training_targets(built):
@@ -150,9 +153,9 @@ def test_scaler_is_fitted_on_training_targets(built):
 
 def test_graphs_are_shared_not_copied(built):
     datasets, _, _ = built
-    first, second = datasets["train"][0], datasets["train"][1]
-    if first.design == second.design:
-        assert first.x.data_ptr() == second.x.data_ptr()
+    # Samples carry no graph; train, val and test all point to one shared dict of design graphs
+    assert "x" not in datasets["train"][0]
+    assert datasets["train"].graphs is datasets["val"].graphs is datasets["test"].graphs
 
 
 def test_excluded_design_is_rejected(data_root, tmp_path):

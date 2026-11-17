@@ -1,0 +1,33 @@
+# M7 baseline: the M6 baseline model on the 12-design set (raw targets, GCN, CNN).
+experiment_name: m7_baseline
+seed: 42
+
+data:
+  root: OPENABC2_DATASET
+  # The 4 M3-M6 designs + 8 more small/medium designs whose labels really vary (docs/findings.md, M7)
+  designs: [i2c, spi, fir, wb_dma, iir, tv80, Rocket_csr, Rocket_muldiv, or1200_multmac, s38417, s38584, sha256]
+  split: random             # src.run_generalisation switches this to by_design per fold
+  test_designs: []          # set per fold by src.run_generalisation
+  val_fraction: 0.15
+  test_fraction: 0.15
+  split_seed: 42
+  split_file: splits/m7_random.json
+  targets: [and, delay]
+  target_mode: raw
+  recipe_source: ss_pcm
+
+model:
+  graph_encoder: gcn
+  graph_layers: 3
+  recipe_encoder: cnn
+  hidden_dim: 64
+  inputs: both
+
+training:
+  lr: 0.001
+  batch_size: 64            # 64, not 32: each batch encodes every distinct design graph once, so bigger batches = fewer graph passes (M7 speed)
+  max_epochs: 100
+  early_stopping_patience: 10
+  loss: mse
+  rank_weight: 1.0
+  select_by: val_loss

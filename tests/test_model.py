@@ -3,33 +3,51 @@
 import pytest
 import torch
 from torch_geometric.data import Data
-from torch_geometric.loader import DataLoader
 
-from src.data import NUM_COMMANDS, NUM_NODE_FEATURES, RECIPE_LENGTH
+from src.data import NUM_COMMANDS, NUM_NODE_FEATURES, RECIPE_LENGTH, QoRDataset, make_loader
 from src.models import GraphEncoder, QoRModel, RecipeEncoder, build_model
 from src.utils import set_seed
 
 MODEL_CFG = {"graph_encoder": "gcn", "recipe_encoder": "cnn", "hidden_dim": 32, "graph_layers": 3}
 
 
-def fake_sample(num_nodes=12):
-    """A small random graph shaped like a real sample from QoRDataset."""
+def fake_graph(num_nodes=12):
+    """A small random graph shaped like a real design graph."""
     x = torch.zeros(num_nodes, NUM_NODE_FEATURES)
     x[torch.arange(num_nodes), torch.randint(0, 3, (num_nodes,))] = 1           # node type one-hot
     x[torch.arange(num_nodes), 3 + torch.randint(0, 3, (num_nodes,))] = 1       # inverted-input one-hot
     edge_index = torch.randint(0, num_nodes, (2, 2 * num_nodes))
-    return Data(x=x, edge_index=edge_index, num_nodes=num_nodes,
-                recipe=torch.randint(0, NUM_COMMANDS, (1, RECIPE_LENGTH)), y=torch.randn(1, 2))
+    return Data(x=x, edge_index=edge_index, num_nodes=num_nodes)
 
 
-def fake_batch(n):
-    return next(iter(DataLoader([fake_sample(num_nodes=8 + i % 5) for i in range(n)], batch_size=n)))
+def fake_dataset(n, num_designs=3):
+    """n samples spread over a few fake designs, like a real QoRDataset."""
+    graphs = {f"d{k}": fake_graph(8 + k) for k in range(num_designs)}
+    samples = [(f"d{i % num_designs}", i) for i in range(n)]
+    recipes = torch.randint(0, NUM_COMMANDS, (n, RECIPE_LENGTH))
+    return QoRDataset(samples, graphs, recipes, torch.randn(n, 2), torch.ones(n, 2))
 
 
-def test_encoders_output_one_vector_per_sample():
-    batch = fake_batch(6)
-    assert GraphEncoder(hidden_dim=32)(batch.x, batch.edge_index, batch.batch).shape == (6, 32)
-    assert RecipeEncoder(hidden_dim=32)(batch.recipe).shape == (6, 32)
+def fake_batch(n, num_designs=3):
+    return next(iter(make_loader(fake_dataset(n, num_designs), batch_size=n)))
+
+
+def test_encoders_output_one_vector_per_graph_and_per_recipe():
+    batch = fake_batch(6, num_designs=3)
+    g = batch.graphs
+    assert GraphEncoder(hidden_dim=32)(g.x, g.edge_index, g.batch).shape == (3, 32)   # one per design
+    assert RecipeEncoder(hidden_dim=32)(batch.recipe).shape == (6, 32)               # one per sample
+
+
+def test_prediction_does_not_depend_on_the_rest_of_the_batch():
+    # Encoding each design graph once per batch must give the same result as predicting samples one by one
+    set_seed(0)
+    data = fake_dataset(12, num_designs=4)
+    model = build_model(MODEL_CFG, num_targets=2).eval()
+    with torch.no_grad():
+        together = model(next(iter(make_loader(data, batch_size=12))))
+        alone = torch.cat([model(b) for b in make_loader(data, batch_size=1)])
+    assert torch.allclose(together, alone, atol=1e-5)
 
 
 def test_forward_pass_gives_batch_by_2():
@@ -42,7 +60,7 @@ def test_forward_pass_gives_batch_by_2():
 def test_graph_vector_does_not_depend_on_graph_size():
     # Mean pooling: duplicating every node and edge of a graph leaves its vector unchanged
     set_seed(0)
-    g = fake_sample(10)
+    g = fake_graph(10)
     doubled = Data(x=torch.cat([g.x, g.x]),
                    edge_index=torch.cat([g.edge_index, g.edge_index + 10], dim=1), num_nodes=20)
     enc = GraphEncoder(hidden_dim=16)

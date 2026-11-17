@@ -17,10 +17,9 @@ from pathlib import Path
 
 import torch
 import yaml
-from torch_geometric.loader import DataLoader
 from tqdm import tqdm
 
-from src.data import TargetScaler, build_datasets
+from src.data import TargetScaler, build_datasets, make_loader
 from src.evaluate import compute_metrics, predict
 from src.models import build_model, count_parameters
 from src.utils import make_run_dir, plot_loss_curves, plot_pred_vs_actual, set_seed
@@ -94,8 +93,8 @@ def train_one_epoch(model, loader, optimizer, device, train_cfg):
         loss = compute_loss(model(batch), batch, train_cfg)
         loss.backward()           # compute gradients
         optimizer.step()          # update the weights
-        total += loss.item() * batch.num_graphs
-        count += batch.num_graphs
+        total += loss.item() * len(batch)
+        count += len(batch)
     return total / count
 
 
@@ -120,12 +119,11 @@ def run(cfg, runs_dir="runs"):
     # The split uses its own seed, so changing the training seed keeps the same train/val/test samples
     datasets, scaler, meta = build_datasets(data_cfg, data_cfg.get("split_seed", cfg["seed"]))
     print(f"Samples: {meta['split_sizes']}")
-    # A seeded generator makes the shuffling order reproducible
+    # The training order is shuffled reproducibly from the seed
     loaders = {
-        "train": DataLoader(datasets["train"], batch_size=train_cfg["batch_size"], shuffle=True,
-                            generator=torch.Generator().manual_seed(cfg["seed"])),
-        "val": DataLoader(datasets["val"], batch_size=train_cfg["batch_size"]),
-        "test": DataLoader(datasets["test"], batch_size=train_cfg["batch_size"]),
+        "train": make_loader(datasets["train"], train_cfg["batch_size"], shuffle=True, seed=cfg["seed"]),
+        "val": make_loader(datasets["val"], train_cfg["batch_size"]),
+        "test": make_loader(datasets["test"], train_cfg["batch_size"]),
     }
 
     model = build_model(cfg["model"], num_targets=len(target_names)).to(device)

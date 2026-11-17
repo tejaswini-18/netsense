@@ -1,0 +1,18 @@
+# M7 plan: generalisation to unseen designs (PRD experiment 6, section 8.2). Used by src.run_generalisation.
+variants: [configs/m7_baseline.yaml, configs/m7_ratio.yaml, configs/m7_combined.yaml]
+seeds: [0, 1, 2]
+
+# By-design 4-fold split: each fold holds out 3 designs; every design is held out exactly once.
+# Folds mix sizes and design families; together they must contain exactly the variants' designs.
+folds:
+  - [i2c, tv80, s38584]
+  - [spi, Rocket_csr, iir]
+  - [fir, or1200_multmac, Rocket_muldiv]
+  - [wb_dma, sha256, s38417]
+
+# Few-shot: fine-tune the unseen-design model on `shots` recipes of ONE held-out design, test on its other recipes.
+# There is no validation data for a held-out design, so the number of steps is fixed in advance.
+few_shot:
+  shots: 20
+  epochs: 100       # each epoch = one step on all 20 shots
+  lr: 0.001

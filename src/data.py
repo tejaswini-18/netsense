@@ -13,7 +13,7 @@ from pathlib import Path
 
 import torch
 import torch.nn.functional as F
-from torch_geometric.data import Data
+from torch_geometric.data import Batch, Data
 
 # ---------------------------------------------------------------------------
 # Constants (see docs/data_notes.md)
@@ -327,14 +327,12 @@ class TargetScaler:
 # ---------------------------------------------------------------------------
 
 class QoRDataset(torch.utils.data.Dataset):
-    """One sample = (design graph, recipe, targets, design name).
+    """One sample = (design, recipe, targets). The design's graph is NOT copied into each sample.
 
-    Graphs are shared per design (no copies). With torch_geometric.loader.DataLoader a batch has:
-      x, edge_index, batch  - all graphs of the batch merged into one big disconnected graph
-      recipe [B, 20]        - command IDs
-      y      [B, T]         - standardised targets
-      base   [B, T]         - ratio divisors (to convert predictions back to real units)
-      design (list of B names), syn_id [B]
+    Every recipe of a design uses the same initial graph, so a batch only needs each design's graph once.
+    Use make_loader() to batch: it builds a QoRBatch in which every distinct design's graph appears once
+    and graph_index says which graph each sample belongs to. The graph encoder then runs once per design
+    in the batch instead of once per sample (same result, far less computation).
     """
 
     def __init__(self, samples, graphs, recipes, targets, bases):
@@ -346,10 +344,60 @@ class QoRDataset(torch.utils.data.Dataset):
 
     def __getitem__(self, i):
         design, syn_id = self.samples[i]
-        g = self.graphs[design]
-        return Data(x=g.x, edge_index=g.edge_index, edge_attr=g.edge_attr, num_nodes=g.num_nodes,
-                    recipe=self.recipes[syn_id].unsqueeze(0), y=self.targets[i].unsqueeze(0),
-                    base=self.bases[i].unsqueeze(0), design=design, syn_id=syn_id)
+        return {"design": design, "syn_id": syn_id, "recipe": self.recipes[syn_id],
+                "y": self.targets[i], "base": self.bases[i]}
+
+    def subset(self, indices):
+        """A smaller dataset with the chosen samples (used for few-shot fine-tuning)."""
+        idx = list(indices)
+        return QoRDataset([self.samples[i] for i in idx], self.graphs, self.recipes,
+                          self.targets[idx], self.bases[idx])
+
+
+class QoRBatch:
+    """A batch of samples.
+
+      graphs       - PyG Batch with each distinct design graph of the batch once (x, edge_index, batch)
+      graph_index  [B]     - for each sample, the position of its graph inside `graphs`
+      recipe       [B, 20] - command IDs
+      y            [B, T]  - standardised targets
+      base         [B, T]  - ratio divisors (to convert predictions back to real units)
+      design (list of B names), syn_id [B]
+    """
+
+    def __init__(self, graphs, graph_index, recipe, y, base, design, syn_id):
+        self.graphs, self.graph_index, self.recipe = graphs, graph_index, recipe
+        self.y, self.base, self.design, self.syn_id = y, base, design, syn_id
+
+    def __len__(self):
+        return len(self.design)
+
+    def to(self, device):
+        for name in ("graphs", "graph_index", "recipe", "y", "base", "syn_id"):
+            setattr(self, name, getattr(self, name).to(device))
+        return self
+
+
+def collate(items, graphs):
+    """Turn a list of dataset items into a QoRBatch (each distinct design's graph included once)."""
+    names = list(dict.fromkeys(item["design"] for item in items))   # distinct designs, in order
+    position = {d: k for k, d in enumerate(names)}
+    return QoRBatch(
+        graphs=Batch.from_data_list([graphs[d] for d in names]),
+        graph_index=torch.tensor([position[item["design"]] for item in items]),
+        recipe=torch.stack([item["recipe"] for item in items]),
+        y=torch.stack([item["y"] for item in items]),
+        base=torch.stack([item["base"] for item in items]),
+        design=[item["design"] for item in items],
+        syn_id=torch.tensor([item["syn_id"] for item in items]),
+    )
+
+
+def make_loader(dataset, batch_size, shuffle=False, seed=0):
+    """DataLoader for a QoRDataset. With shuffle=True the order is reproducible from the seed."""
+    generator = torch.Generator().manual_seed(seed) if shuffle else None
+    return torch.utils.data.DataLoader(dataset, batch_size=batch_size, shuffle=shuffle, generator=generator,
+                                       collate_fn=lambda items: collate(items, dataset.graphs))
 
 
 def make_split(cfg, seed):
