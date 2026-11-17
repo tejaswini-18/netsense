@@ -24,7 +24,8 @@ python -m src.train --config configs/baseline.yaml --data-root <path to OpenABC-
 ```
 
 Training on Kaggle: build a compact copy (44 files, ~80 MB) of only the data the pipeline reads, upload it as a Kaggle
-dataset, then follow `notebooks/02_kaggle_train.ipynb`.
+dataset, then follow `notebooks/02_kaggle_train.ipynb`. On Kaggle, install only `torch_geometric` (and `pytest`);
+Kaggle's preinstalled PyTorch must not be reinstalled from `requirements.txt`.
 
 ```
 python -m src.make_subset --data-root <path to OpenABC-D folder> --out kaggle_data/openabc-compact
