@@ -9,6 +9,7 @@ data:
   test_designs: [wb_dma]    # used by by_design / leave_one_design_out only
   val_fraction: 0.15
   test_fraction: 0.15       # random split only
+  split_seed: 42            # fixed, so every run and seed uses the same split
   split_file: splits/baseline_random.json   # saved split (record + consistency check)
   targets: [and, delay]     # label columns: and | not | levels | area | delay
   target_mode: raw          # raw | ratio (ratio is tested in experiment 1)
@@ -19,9 +20,13 @@ model:
   graph_layers: 3
   recipe_encoder: cnn       # cnn | transformer
   hidden_dim: 64
+  inputs: both              # both | graph_only | recipe_only (ablation)
 
 training:
   lr: 0.001
   batch_size: 32
   max_epochs: 100
   early_stopping_patience: 10
+  loss: mse                 # mse | mse_rank (adds a pairwise ranking loss)
+  rank_weight: 1.0          # weight of the ranking loss when loss = mse_rank
+  select_by: val_loss       # val_loss | val_tau: which validation score picks the best epoch

@@ -1,0 +1,37 @@
+# Experiment 5 (ablation): graph encoder only, no recipe.
+# The ONLY change from configs/baseline.yaml: model.inputs: both -> graph_only
+experiment_name: exp5_graph_only
+seed: 42
+data:
+  root: OPENABC2_DATASET
+  designs:
+  - i2c
+  - spi
+  - fir
+  - wb_dma
+  split: random
+  test_designs:
+  - wb_dma
+  val_fraction: 0.15
+  test_fraction: 0.15
+  split_seed: 42
+  split_file: splits/baseline_random.json
+  targets:
+  - and
+  - delay
+  target_mode: raw
+  recipe_source: ss_pcm
+model:
+  graph_encoder: gcn
+  graph_layers: 3
+  recipe_encoder: cnn
+  hidden_dim: 64
+  inputs: graph_only
+training:
+  lr: 0.001
+  batch_size: 32
+  max_epochs: 100
+  early_stopping_patience: 10
+  loss: mse
+  rank_weight: 1.0
+  select_by: val_loss

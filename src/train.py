@@ -11,6 +11,7 @@ best.pt (best checkpoint), test_metrics.json, test_predictions.csv, loss_curve.p
 import argparse
 import csv
 import json
+import math
 import time
 from pathlib import Path
 
@@ -43,14 +44,54 @@ def load_config(args):
     return cfg
 
 
-def train_one_epoch(model, loader, optimizer, device):
+def pairwise_ranking_loss(pred, target, groups):
+    """Logistic pairwise loss over pairs of samples from the same design (RankNet-style).
+
+    For every pair (i, j) of the same design whose true values differ, the loss is small when the predicted
+    difference has the same sign as the true difference: log(1 + exp(-sign(t_i - t_j) * (p_i - p_j))).
+    Computed per target column and averaged over all valid pairs.
+    """
+    same_design = groups[:, None] == groups[None, :]              # [B, B]
+    true_diff = target[:, None, :] - target[None, :, :]          # [B, B, T]
+    pred_diff = pred[:, None, :] - pred[None, :, :]
+    valid = same_design[..., None] & (true_diff != 0)
+    if not valid.any():
+        return pred.sum() * 0.0  # no usable pair in this batch
+    losses = torch.nn.functional.softplus(-torch.sign(true_diff) * pred_diff)
+    return losses[valid].mean()
+
+
+def compute_loss(pred, batch, train_cfg):
+    """MSE, plus the pairwise ranking loss when train_cfg['loss'] == 'mse_rank'."""
+    loss = torch.nn.functional.mse_loss(pred, batch.y)
+    kind = train_cfg.get("loss", "mse")
+    if kind == "mse_rank":
+        names = sorted(set(batch.design))
+        groups = torch.tensor([names.index(d) for d in batch.design], device=pred.device)
+        loss = loss + train_cfg.get("rank_weight", 1.0) * pairwise_ranking_loss(pred, batch.y, groups)
+    elif kind != "mse":
+        raise ValueError(f"unknown loss {kind!r} (use mse or mse_rank)")
+    return loss
+
+
+def selection_score(val, target_names, select_by):
+    """Lower is better. val_loss: validation MSE; val_tau: minus the mean Kendall's tau over targets."""
+    if select_by == "val_loss":
+        return val["loss"]
+    if select_by == "val_tau":
+        taus = [val[f"tau_{t}"] for t in target_names if not math.isnan(val[f"tau_{t}"])]
+        return -sum(taus) / len(taus) if taus else float("inf")
+    raise ValueError(f"unknown select_by {select_by!r} (use val_loss or val_tau)")
+
+
+def train_one_epoch(model, loader, optimizer, device, train_cfg):
     """One pass over the training data; returns the average training loss."""
     model.train()
     total, count = 0.0, 0
     for batch in tqdm(loader, desc="  train", leave=False):
         batch = batch.to(device)
         optimizer.zero_grad()
-        loss = torch.nn.functional.mse_loss(model(batch), batch.y)
+        loss = compute_loss(model(batch), batch, train_cfg)
         loss.backward()           # compute gradients
         optimizer.step()          # update the weights
         total += loss.item() * batch.num_graphs
@@ -76,7 +117,8 @@ def run(cfg, runs_dir="runs"):
     (run_dir / "config.yaml").write_text(yaml.safe_dump(cfg, sort_keys=False))
     print(f"Run folder: {run_dir}  |  device: {device}")
 
-    datasets, scaler, meta = build_datasets(data_cfg, cfg["seed"])
+    # The split uses its own seed, so changing the training seed keeps the same train/val/test samples
+    datasets, scaler, meta = build_datasets(data_cfg, data_cfg.get("split_seed", cfg["seed"]))
     print(f"Samples: {meta['split_sizes']}")
     # A seeded generator makes the shuffling order reproducible
     loaders = {
@@ -90,7 +132,8 @@ def run(cfg, runs_dir="runs"):
     optimizer = torch.optim.Adam(model.parameters(), lr=train_cfg["lr"])
     print(f"Model parameters: {count_parameters(model):,}")
 
-    history, best_val, best_epoch, waited = [], float("inf"), 0, 0
+    select_by = train_cfg.get("select_by", "val_loss")
+    history, best_score, best_val, best_epoch, waited = [], float("inf"), float("inf"), 0, 0
     columns = ["epoch", "train_loss", "val_loss"] + [f"val_{m}_{t}" for t in target_names
                                                      for m in ("mape", "tau", "top10")] + ["seconds"]
     with open(run_dir / "metrics.csv", "w", newline="") as f:
@@ -98,7 +141,7 @@ def run(cfg, runs_dir="runs"):
 
     for epoch in range(1, train_cfg["max_epochs"] + 1):
         start = time.time()
-        train_loss = train_one_epoch(model, loaders["train"], optimizer, device)
+        train_loss = train_one_epoch(model, loaders["train"], optimizer, device, train_cfg)
         val, _, _ = compute_metrics(predict(model, loaders["val"], device), scaler, mode, target_names)
         row = {"epoch": epoch, "train_loss": train_loss, "val_loss": val["loss"], "seconds": time.time() - start}
         for t in target_names:
@@ -108,10 +151,11 @@ def run(cfg, runs_dir="runs"):
         with open(run_dir / "metrics.csv", "a", newline="") as f:
             csv.writer(f).writerow([row[c] for c in columns])
 
-        # Early stopping: keep the best model by validation loss, stop when it stops improving
-        improved = val["loss"] < best_val
+        # Early stopping: keep the best model by the chosen validation score, stop when it stops improving
+        score = selection_score(val, target_names, select_by)
+        improved = score < best_score
         if improved:
-            best_val, best_epoch, waited = val["loss"], epoch, 0
+            best_score, best_val, best_epoch, waited = score, val["loss"], epoch, 0
             torch.save({"model": model.state_dict(), "scaler": scaler.state_dict(), "config": cfg,
                         "epoch": epoch}, run_dir / "best.pt")
         else:
@@ -139,7 +183,7 @@ def run(cfg, runs_dir="runs"):
     plot_pred_vs_actual(pred, true, out["design"], target_names, run_dir / "test_scatter.png")
 
     print("\n=== Summary ===")
-    print(f"Best epoch: {best_epoch} (val loss {best_val:.4f})")
+    print(f"Best epoch: {best_epoch} (chosen by {select_by}; val loss {best_val:.4f})")
     print(summary_line("test", test, target_names))
     for t in target_names:
         print(f"  tau_{t} by design: " + ", ".join(f"{d} {v:.3f}" for d, v in test[f"tau_{t}_by_design"].items()))

@@ -71,3 +71,26 @@ def plot_pred_vs_actual(pred, true, designs, target_names, path):
     fig.tight_layout()
     fig.savefig(path, dpi=120)
     plt.close(fig)
+
+
+def plot_experiment_bars(summary, metric_names, path):
+    """Bar chart comparing experiments: mean over seeds with error bars (standard deviation)."""
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    names = list(summary)
+    fig, axes = plt.subplots(1, len(metric_names), figsize=(5 * len(metric_names), 0.45 * len(names) + 1.5))
+    axes = np.atleast_1d(axes)
+    for ax, metric in zip(axes, metric_names):
+        means = [summary[n][metric][0] for n in names]
+        stds = [summary[n][metric][1] for n in names]
+        ax.barh(names, means, xerr=stds, color="#4C72B0", capsize=3)
+        ax.axvline(summary.get("baseline", {}).get(metric, (np.nan,))[0], color="grey", linestyle="--",
+                   linewidth=1, label="baseline")
+        ax.set_xlabel(metric)
+        ax.invert_yaxis()  # first experiment at the top
+    axes[0].legend(fontsize=8)
+    fig.tight_layout()
+    fig.savefig(path, dpi=120)
+    plt.close(fig)

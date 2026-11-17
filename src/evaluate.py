@@ -91,3 +91,24 @@ def compute_metrics(out, scaler, mode, target_names, k=10):
         metrics[f"top{k}_{t}"] = float(np.mean(list(tops.values()))) if tops else float("nan")
         metrics[f"tau_{t}_by_design"] = taus
     return metrics, pred, true
+
+
+def design_average_reference(data_cfg, split, labels):
+    """Reference predictor that ignores the recipe: each test sample gets its design's training-set average.
+
+    Any useful model must rank recipes (tau > 0); this one cannot (it predicts a constant per design).
+    Returns {mape_<target>: value} in real units.
+    """
+    from src.data import LABEL_COLUMNS
+    out = {}
+    for t in data_cfg["targets"]:
+        col = LABEL_COLUMNS[t]
+        sums = {}
+        for d, i in split["train"]:
+            s, n = sums.get(d, (0.0, 0))
+            sums[d] = (s + labels[d][i, col].item(), n + 1)
+        means = {d: s / n for d, (s, n) in sums.items()}
+        true = np.array([labels[d][i, col].item() for d, i in split["test"]])
+        guess = np.array([means[d] for d, _ in split["test"]])
+        out[f"mape_{t}"] = mape(guess, true)
+    return out

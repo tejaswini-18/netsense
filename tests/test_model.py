@@ -53,7 +53,26 @@ def test_graph_vector_does_not_depend_on_graph_size():
 
 def test_unknown_variant_is_rejected():
     with pytest.raises(ValueError):
-        build_model({**MODEL_CFG, "graph_encoder": "gin"}, num_targets=2)
+        build_model({**MODEL_CFG, "graph_encoder": "gat"}, num_targets=2)
+    with pytest.raises(ValueError):
+        build_model({**MODEL_CFG, "recipe_encoder": "lstm"}, num_targets=2)
+    with pytest.raises(ValueError):
+        build_model({**MODEL_CFG, "inputs": "neither"}, num_targets=2)
+
+
+@pytest.mark.parametrize("change", [{"graph_encoder": "gin"}, {"graph_encoder": "sage"},
+                                    {"recipe_encoder": "transformer"}, {"inputs": "graph_only"},
+                                    {"inputs": "recipe_only"}])
+def test_every_variant_gives_batch_by_2(change):
+    model = build_model({**MODEL_CFG, **change}, num_targets=2)
+    out = model(fake_batch(6))
+    assert out.shape == (6, 2)
+    assert not torch.isnan(out).any()
+
+
+def test_ablations_really_drop_a_branch():
+    assert build_model({**MODEL_CFG, "inputs": "graph_only"}, 2).recipe_encoder is None
+    assert build_model({**MODEL_CFG, "inputs": "recipe_only"}, 2).graph_encoder is None
 
 
 def test_model_can_overfit_50_samples():
