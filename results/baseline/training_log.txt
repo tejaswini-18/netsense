@@ -1,0 +1,39 @@
+Run folder: /kaggle/working/runs/baseline_20261117_123717  |  device: cuda
+Samples: {'train': 4200, 'val': 900, 'test': 900}
+Model parameters: 35,938
+epoch   1 train 0.5892 | val loss 0.2830 | MAPE_and 10.65%  tau_and 0.069 | MAPE_delay 30.72%  tau_delay 0.069 | 6s  *best*
+epoch   2 train 0.1778 | val loss 0.1145 | MAPE_and 8.72%  tau_and 0.171 | MAPE_delay 11.50%  tau_delay 0.072 | 5s  *best*
+epoch   3 train 0.0946 | val loss 0.0845 | MAPE_and 8.98%  tau_and 0.121 | MAPE_delay 10.65%  tau_delay 0.070 | 5s  *best*
+epoch   4 train 0.0730 | val loss 0.0674 | MAPE_and 6.92%  tau_and 0.153 | MAPE_delay 9.49%  tau_delay 0.069 | 5s  *best*
+epoch   5 train 0.0606 | val loss 0.0600 | MAPE_and 3.52%  tau_and 0.132 | MAPE_delay 10.48%  tau_delay 0.062 | 5s  *best*
+epoch   6 train 0.0565 | val loss 0.0615 | MAPE_and 4.34%  tau_and 0.011 | MAPE_delay 8.50%  tau_delay 0.058 | 5s
+epoch   7 train 0.0556 | val loss 0.0605 | MAPE_and 7.05%  tau_and 0.083 | MAPE_delay 9.92%  tau_delay 0.075 | 5s
+epoch   8 train 0.0546 | val loss 0.0622 | MAPE_and 2.67%  tau_and 0.075 | MAPE_delay 10.26%  tau_delay 0.080 | 5s
+epoch   9 train 0.0574 | val loss 0.0671 | MAPE_and 8.48%  tau_and 0.098 | MAPE_delay 9.45%  tau_delay 0.095 | 5s
+epoch  10 train 0.0573 | val loss 0.0590 | MAPE_and 5.84%  tau_and 0.085 | MAPE_delay 9.43%  tau_delay 0.082 | 5s  *best*
+epoch  11 train 0.0534 | val loss 0.0617 | MAPE_and 5.58%  tau_and 0.112 | MAPE_delay 9.57%  tau_delay 0.082 | 5s
+epoch  12 train 0.0530 | val loss 0.0567 | MAPE_and 3.46%  tau_and 0.145 | MAPE_delay 9.33%  tau_delay 0.081 | 5s  *best*
+epoch  13 train 0.0509 | val loss 0.0569 | MAPE_and 5.24%  tau_and 0.103 | MAPE_delay 9.20%  tau_delay 0.089 | 5s
+epoch  14 train 0.0497 | val loss 0.0634 | MAPE_and 7.27%  tau_and 0.135 | MAPE_delay 10.29%  tau_delay 0.090 | 5s
+epoch  15 train 0.0488 | val loss 0.0607 | MAPE_and 4.34%  tau_and 0.145 | MAPE_delay 9.59%  tau_delay 0.082 | 5s
+epoch  16 train 0.0513 | val loss 0.0566 | MAPE_and 3.21%  tau_and 0.150 | MAPE_delay 8.52%  tau_delay 0.082 | 5s  *best*
+epoch  17 train 0.0457 | val loss 0.0573 | MAPE_and 4.82%  tau_and 0.162 | MAPE_delay 8.90%  tau_delay 0.086 | 5s
+epoch  18 train 0.0440 | val loss 0.0551 | MAPE_and 2.20%  tau_and 0.185 | MAPE_delay 9.23%  tau_delay 0.078 | 5s  *best*
+epoch  19 train 0.0439 | val loss 0.0556 | MAPE_and 1.85%  tau_and 0.196 | MAPE_delay 8.69%  tau_delay 0.080 | 5s
+epoch  20 train 0.0443 | val loss 0.0609 | MAPE_and 2.05%  tau_and 0.228 | MAPE_delay 11.46%  tau_delay 0.078 | 5s
+epoch  21 train 0.0412 | val loss 0.0603 | MAPE_and 3.37%  tau_and 0.265 | MAPE_delay 10.46%  tau_delay 0.078 | 5s
+epoch  22 train 0.0390 | val loss 0.0599 | MAPE_and 4.06%  tau_and 0.237 | MAPE_delay 10.71%  tau_delay 0.094 | 5s
+epoch  23 train 0.0373 | val loss 0.0567 | MAPE_and 1.91%  tau_and 0.262 | MAPE_delay 9.37%  tau_delay 0.074 | 5s
+epoch  24 train 0.0342 | val loss 0.0571 | MAPE_and 2.19%  tau_and 0.259 | MAPE_delay 9.24%  tau_delay 0.082 | 5s
+epoch  25 train 0.0336 | val loss 0.0602 | MAPE_and 1.91%  tau_and 0.187 | MAPE_delay 9.85%  tau_delay 0.086 | 5s
+epoch  26 train 0.0319 | val loss 0.0649 | MAPE_and 6.43%  tau_and 0.221 | MAPE_delay 9.77%  tau_delay 0.091 | 5s
+epoch  27 train 0.0316 | val loss 0.0570 | MAPE_and 1.88%  tau_and 0.214 | MAPE_delay 8.96%  tau_delay 0.082 | 5s
+epoch  28 train 0.0302 | val loss 0.0620 | MAPE_and 2.69%  tau_and 0.268 | MAPE_delay 10.34%  tau_delay 0.067 | 5s
+Early stopping: no improvement for 10 epochs.
+
+=== Summary ===
+Best epoch: 18 (val loss 0.0551)
+test loss 0.0448 | MAPE_and 2.30%  tau_and 0.148 | MAPE_delay 8.87%  tau_delay 0.063
+  tau_and by design: fir 0.200, i2c -0.158, spi 0.408, wb_dma 0.143
+  tau_delay by design: fir -0.007, i2c -0.005, spi 0.098, wb_dma 0.166
+Saved to /kaggle/working/runs/baseline_20261117_123717
