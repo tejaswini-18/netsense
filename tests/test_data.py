@@ -170,3 +170,13 @@ def test_stale_split_file_is_rejected(data_root, tmp_path):
     save_split(make_random_split(["i2c", "spi"], seed=999), cfg["split_file"])
     with pytest.raises(ValueError, match="does not match"):
         build_datasets(cfg, seed=42)
+
+
+def test_compact_copy_matches_original(data_root, tmp_path):
+    # The Kaggle copy (src/make_subset.py) must give exactly the same inputs as the original files
+    from src.make_subset import make_subset
+    make_subset(data_root, tmp_path / "mini", designs=["i2c", "spi"])
+    for design in ["i2c", "spi"]:
+        (g1, info1), (g2, info2) = load_design_graph(data_root, design), load_design_graph(tmp_path / "mini", design)
+        assert torch.equal(g1.x, g2.x) and torch.equal(g1.edge_index, g2.edge_index) and info1 == info2
+    assert torch.equal(load_recipes(data_root), load_recipes(tmp_path / "mini"))

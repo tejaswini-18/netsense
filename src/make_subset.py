@@ -1,8 +1,11 @@
-"""Copy the few dataset files the pipeline actually reads into a small folder (e.g. for a Kaggle upload).
+"""Write a compact copy of the data the pipeline reads (e.g. for a Kaggle upload).
 
-The pipeline needs, per design, only recipe 0's graph file (the graph is the same in all 1500 files),
-the 1500 small files of the recipe-source design (to read the recipes), and synthesisStatistics.pickle.
-For all 42 designs that is about 25 MB instead of 18 GB.
+The original dataset is 63,000 zipped graph files, but the pipeline only needs:
+  - each design's initial graph (identical in all 1500 files of a design), and
+  - the 1500 recipes (identical for every design), and
+  - synthesisStatistics.pickle (labels).
+This writes them as graphs/<design>.pt (plain tensors), recipes.json and the labels pickle:
+44 files of about 25 MB, under Kaggle's 1000-file upload limit and with no nested .zip files.
 
 Usage:
     python -m src.make_subset --data-root OPENABC2_DATASET --out kaggle_data/openabc-mini
@@ -10,11 +13,14 @@ The source folder is only read, never modified.
 """
 
 import argparse
+import json
 import pickle
 import shutil
 from pathlib import Path
 
-from src.data import NUM_RECIPES, graph_file
+import torch
+
+from src.data import compact_graph_file, load_raw_graph, load_recipes
 
 
 def make_subset(data_root, out, recipe_source="ss_pcm", designs=None):
@@ -22,17 +28,18 @@ def make_subset(data_root, out, recipe_source="ss_pcm", designs=None):
     if out.resolve() == data_root.resolve():
         raise ValueError("output folder must differ from the dataset folder")
     with open(data_root / "synthesisStatistics.pickle", "rb") as f:
-        all_designs = sorted(pickle.load(f))
-    designs = designs or all_designs
+        designs = designs or sorted(pickle.load(f))
 
-    (out / "processed").mkdir(parents=True, exist_ok=True)
+    (out / "graphs").mkdir(parents=True, exist_ok=True)
     shutil.copy2(data_root / "synthesisStatistics.pickle", out / "synthesisStatistics.pickle")
-    files = {graph_file(data_root, d, 0) for d in designs}
-    files |= {graph_file(data_root, recipe_source, i) for i in range(NUM_RECIPES)}
-    for src in sorted(files):
-        shutil.copy2(src, out / "processed" / src.name)
-    size_mb = sum(p.stat().st_size for p in out.rglob("*") if p.is_file()) / 1e6
-    print(f"Copied {len(files) + 1} files ({len(designs)} designs) to {out}: {size_mb:.1f} MB")
+    recipes = load_recipes(data_root, recipe_source)
+    (out / "recipes.json").write_text(json.dumps(recipes.tolist()))
+    for d in designs:
+        torch.save(load_raw_graph(data_root, d), compact_graph_file(out, d))
+
+    files = [p for p in out.rglob("*") if p.is_file()]
+    size_mb = sum(p.stat().st_size for p in files) / 1e6
+    print(f"Wrote {len(files)} files ({len(designs)} designs) to {out}: {size_mb:.1f} MB")
 
 
 def main():

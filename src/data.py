@@ -116,13 +116,38 @@ def graph_file(root, design, syn_id):
     return Path(root) / "processed" / f"{design}_syn{syn_id}_step0.pt.zip"
 
 
+# Fields of the original graph files that the pipeline uses
+RAW_GRAPH_FIELDS = ["node_type", "num_inverted_predecessors", "edge_index", "edge_type",
+                    "and_nodes", "not_edges", "longest_path"]
+
+
+def compact_graph_file(root, design):
+    """Compact format written by src/make_subset.py: one plain-tensor file per design."""
+    return Path(root) / "graphs" / f"{design}.pt"
+
+
+def load_raw_graph(root, design):
+    """The fields we need from a design's initial AIG, as a dict of tensors.
+
+    Reads the compact format if present (e.g. the Kaggle copy), otherwise the original OpenABC-D file.
+    The graph is identical in all 1500 original files of a design, so recipe 0's file is enough.
+    """
+    compact = compact_graph_file(root, design)
+    if compact.exists():
+        # Plain tensors only, so PyTorch's safe loading mode (weights_only) is enough
+        return torch.load(compact, weights_only=True)
+    raw = load_aig_file(graph_file(root, design, 0))
+    fields = {k: raw[k] for k in RAW_GRAPH_FIELDS}
+    fields["num_nodes"] = raw.num_nodes
+    return fields
+
+
 def load_design_graph(root, design):
     """Load a design's initial AIG and turn it into model input.
 
-    The graph is identical in all 1500 files of a design, so we read recipe 0's file only.
     Returns (graph, info): graph has x, edge_index, edge_attr; info holds initial-graph counts.
     """
-    raw = load_aig_file(graph_file(root, design, 0))
+    raw = Data(**load_raw_graph(root, design))
 
     # Node features: which kind of node (PI / PO / AND) and how many inverted inputs it has
     node_type = F.one_hot(raw.node_type, num_classes=3)
@@ -147,8 +172,14 @@ def load_design_graph(root, design):
 def load_recipes(root, source_design="ss_pcm"):
     """Return a LongTensor [1500, 20]: row N is recipe N as ABC command IDs.
 
-    Recipe N is the same for every design (data_notes.md), so we read it from the smallest design's files.
+    Uses recipes.json if present (compact format from src/make_subset.py). Otherwise reads the original
+    files: recipe N is the same for every design (data_notes.md), so the smallest design's files suffice.
     """
+    compact = Path(root) / "recipes.json"
+    if compact.exists():
+        recipes = torch.tensor(json.loads(compact.read_text()), dtype=torch.long)
+        assert recipes.shape == (NUM_RECIPES, RECIPE_LENGTH), f"recipes.json has shape {tuple(recipes.shape)}"
+        return recipes
     recipes = torch.empty(NUM_RECIPES, RECIPE_LENGTH, dtype=torch.long)
     for syn_id in range(NUM_RECIPES):
         d = load_aig_file(graph_file(root, source_design, syn_id))
