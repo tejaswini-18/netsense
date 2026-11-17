@@ -6,7 +6,7 @@ NetSense-QoR: a GNN-based logic synthesis QoR predictor. It predicts post-synthe
 The full plan, architecture, experiments and milestones are in PRD.md. Read it when starting a new milestone or when unsure what to build next. Data format findings are in docs/data_notes.md; trust that over assumptions.
 
 ## Current milestone
-M5 — training and evaluation (M1–M4 done). Dataset is at OPENABC2_DATASET/ (read-only, gitignored).
+M5 done (baseline results in docs/findings.md). Next: M6 experiments, not started. Dataset is at OPENABC2_DATASET/ (read-only, gitignored).
 
 ## About me
 Undergraduate (CSE, AI/ML). Comfortable with Python and basic ML. New to PyTorch, graph neural networks and logic synthesis. I need to understand everything for a viva.
