@@ -13,8 +13,10 @@ torch_geometric
 pandas==2.3.3
 ipykernel             # lets Jupyter notebooks use this .venv
 
-# Added when each milestone needs them (ask before installing):
-# scipy               # M5 (kendalltau)
-# scikit-learn        # M3
-# matplotlib          # M2/M5 (plots)
-# tqdm                # M5
+# Training and evaluation (M5)
+scipy                 # Kendall's tau
+matplotlib            # loss curves, scatter plots
+tqdm                  # progress bars
+
+# Added when a milestone needs them (ask before installing):
+# scikit-learn

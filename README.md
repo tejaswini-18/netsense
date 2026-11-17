@@ -17,6 +17,19 @@ pip install -r requirements.txt
 pytest
 ```
 
+Train and evaluate (writes `runs/<experiment>_<timestamp>/` with metrics, checkpoint and plots):
+
+```
+python -m src.train --config configs/baseline.yaml --data-root <path to OpenABC-D folder>
+```
+
+Training on Kaggle: build a 25 MB copy with only the files the pipeline reads, upload it as a Kaggle
+dataset, then follow `notebooks/02_kaggle_train.ipynb`.
+
+```
+python -m src.make_subset --data-root <path to OpenABC-D folder> --out kaggle_data/openabc-mini
+```
+
 ## Credit
 
 Uses the OpenABC-D dataset: Chowdhury, Tan, Karri, Garg, "OpenABC-D: A Large-Scale Dataset

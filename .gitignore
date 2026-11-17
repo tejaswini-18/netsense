@@ -6,6 +6,7 @@
 # Dataset and training outputs (large, never committed)
 data/
 OPENABC2_DATASET/
+kaggle_data/
 *.zip
 runs/
 checkpoints/
