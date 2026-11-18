@@ -8,23 +8,17 @@ Build a deep learning model that predicts the quality of a digital circuit after
 
 Running the real synthesis tool for every possible recipe is slow. The model predicts the result in milliseconds, so many recipes can be ranked quickly and only the best ones need to be run for real.
 
-This is a solo university deep learning course project. It must also be strong enough to show on a resume and explain in a viva, so understanding matters as much as results.
+This is a solo personal research project. Understanding why each result happens matters as much as the results themselves.
 
-## 2. Who I am and how to work with me (rules for Claude Code)
+## 2. Engineering principles
 
-- I am an undergraduate (CSE, AI/ML). I know Python, basic ML (scikit-learn), and full-stack development. I am NEW to PyTorch, graph neural networks, and logic synthesis.
-- My goal is to learn, not just finish. For every file or block of code you write:
-  - Explain what it does and why, in plain language, before or after writing it.
-  - Point out any concept I should understand for my viva (e.g. message passing, pooling, normalisation).
-- Work in small steps. Finish and test one piece before starting the next. Ask me before moving to a new phase.
-- Prefer simple, readable code over clever code. Add short comments explaining intent.
-- Never delete, move, or modify anything inside `data/`. Treat it as read-only.
-- Never commit `data/`, model checkpoints, `.env` files, or large files to git.
-- Do not add "Co-Authored-By: Claude" or "Generated with Claude Code" lines to commits or PR descriptions.
-- Ask before installing new libraries, and add every library you install to `requirements.txt`.
-- If something about the dataset format is unclear, inspect the actual files and tell me what you found. Do not guess.
-- If the original OpenABC repo code uses old library versions, port it to current versions rather than downgrading everything.
-- When something fails, explain the cause before fixing it.
+- Work in small steps; test each piece before building the next.
+- Prefer simple, readable code over clever code, with short comments explaining intent.
+- Treat the dataset as read-only. Never commit data, model checkpoints, secrets (`.env`) or large files.
+- Every installed library is listed in `requirements.txt`.
+- Base the code on the actual data files: inspect them and document the format (`docs/data_notes.md`) instead of assuming.
+- Port old OpenABC code to current library versions rather than downgrading.
+- When something fails, find and document the cause before fixing it.
 
 ## 3. Goals
 
@@ -32,7 +26,7 @@ This is a solo university deep learning course project. It must also be strong e
 2. Reproduce a baseline model (GCN graph encoder + CNN recipe encoder) with results in a similar range to the OpenABC-D paper.
 3. Improve on the baseline with controlled experiments (one change at a time).
 4. Evaluate honestly on designs the model has never seen, not just a random split.
-5. Produce clear plots, a results table, and written findings suitable for a report and viva.
+5. Produce clear plots, a results table, and written findings suitable for a report.
 
 ## 4. Non-goals (for this phase)
 
@@ -126,13 +120,10 @@ Final table: rows = model variants, columns = MAPE (area, delay) and Kendall's t
 
 ```
 netsense-qor/
-├── CLAUDE.md              # project context and rules for Claude Code
 ├── PRD.md                 # this document
 ├── README.md              # project summary, how to run, results
 ├── requirements.txt
 ├── .gitignore             # must include data/, runs/, checkpoints/, .env
-├── .claude/
-│   └── settings.json      # Claude Code settings (attribution off, .env blocked)
 ├── configs/
 │   ├── baseline.yaml
 │   └── ...                # one config per experiment
@@ -215,7 +206,7 @@ netsense-qor/
 | CUDA / PyG version mismatches | Train on Kaggle, where PyTorch is preinstalled; install PyG to match its CUDA version |
 | Memory issues with large graphs | Start with small designs; load each design graph once; tune batch size |
 | Model memorises designs, fails on unseen ones | Ratio targets, mean pooling, ranking loss, more designs, few-shot fine-tuning; report the gap honestly |
-| Running out of time | Milestones M1–M6 alone make a complete class project; M7 is the resume upgrade |
+| Running out of time | Milestones M1–M6 alone make a complete project; M7 (unseen designs) is the main extension |
 
 ## 14. Deliverables
 

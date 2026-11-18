@@ -26,5 +26,6 @@ __pycache__/
 .DS_Store
 Thumbs.db
 
-# Personal Claude Code settings
-.claude/settings.local.json
+# AI coding-assistant files (kept locally, not part of the published project)
+.claude/
+CLAUDE.md

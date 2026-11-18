@@ -13,7 +13,7 @@ metric is **ranking quality** (Kendall's tau between predicted and true values a
 design), not only the percentage error.
 
 Trained and evaluated on the [OpenABC-D](https://github.com/NYU-MLDA/OpenABC) dataset (1,500 recipes per
-design). Solo university deep learning project; the full plan is in [PRD.md](PRD.md).
+design). Solo personal research project; the full plan is in [PRD.md](PRD.md).
 
 ## Results at a glance
 
@@ -201,6 +201,12 @@ On a free Kaggle T4 GPU these took about 1 hour (M6) and about 3 hours (M7). The
 
 The notebooks clone this repository and install only `torch_geometric` and `pytest`. Do **not** install
 `requirements.txt` on Kaggle: reinstalling PyTorch breaks Kaggle's GPU build.
+
+## Use of AI tools
+
+The code was written with the help of an AI coding assistant (Claude Code). The project plan, the choice of
+experiments, all training runs and the interpretation of the results are my own; every result reported here
+comes from the logged runs in `results/`.
 
 ## Credit
 
