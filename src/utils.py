@@ -21,10 +21,18 @@ def set_seed(seed: int) -> None:
 
 
 def make_run_dir(experiment_name, base="runs"):
-    """Create runs/<experiment_name>_<timestamp>/ and return its path."""
+    """Create runs/<experiment_name>_<timestamp>/ and return its path.
+
+    The timestamp has 1-second resolution, so two short runs with the same name can start in the same second:
+    then _2, _3, ... is added instead of failing (an existing run folder is never reused or overwritten).
+    """
     stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     run_dir = Path(base) / f"{experiment_name}_{stamp}"
-    run_dir.mkdir(parents=True, exist_ok=False)
+    n = 2
+    while run_dir.exists():
+        run_dir = Path(base) / f"{experiment_name}_{stamp}_{n}"
+        n += 1
+    run_dir.mkdir(parents=True)
     return run_dir
 
 

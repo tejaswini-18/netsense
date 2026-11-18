@@ -134,3 +134,106 @@ With only 3 seeds the std itself is rough, so small differences (a few hundredth
 - All of this uses a random split, so the test recipes belong to designs the model has trained on.
   Whether the model generalises to **unseen designs** is the question for M7 (by-design and
   leave-one-design-out splits).
+
+## M7 generalisation to unseen designs
+
+**Question:** can the model rank recipes for a circuit it has never seen? (PRD experiment 6, final table §8.2.)
+
+**Setup** (`configs/m7_generalisation.yaml`, `src/run_generalisation.py`, notebook
+`notebooks/04_kaggle_generalisation.ipynb`, code commit `75214df`, Kaggle T4 GPU):
+
+- **12 designs:** the 4 used so far plus iir, tv80, Rocket_csr, Rocket_muldiv, or1200_multmac, s38417, s38584,
+  sha256. All are under ~19k nodes and their labels really vary with the recipe. Designs whose labels barely
+  change were left out (s35932 has only 5 distinct AND values; des3_area, ac97_ctrl, pci and dynamic_node vary
+  by under 2%).
+- **3 variants:** `m7_baseline` (raw targets, GCN, CNN), `m7_ratio` (the M6 winner) and `m7_combined`
+  (ratio + GIN + transformer, the changes that helped in M6, together).
+- **3 settings**, each with seeds 0, 1, 2:
+  - *random:* recipes split at random, every design seen in training (as in M6). 225 test recipes per design.
+  - *unseen:* by-design 4-fold split. Each fold's model never sees 3 designs; every design is held out once
+    and the 4 folds' predictions are pooled. Scored on 1,480 recipes per design.
+  - *few_shot:* each fold model, fine-tuned for 100 steps (lr 1e-3) on 20 fixed recipes of one held-out design,
+    then scored on that design's other 1,480 recipes: exactly the same recipes as *unseen*.
+- **Speed:** the dataset now encodes each design's graph once per batch, not once per sample, which gives
+  identical predictions (tested) and is 13× faster on the laptop with 4 designs. Batch size 64 (not 32) for all
+  M7 runs, because each batch encodes all its distinct design graphs, so bigger batches mean less graph work.
+- **Reference guesses** (they ignore the recipe, so they cannot rank; MAPE only):
+  - random: each design's training average
+  - unseen: the training designs' average final/initial ratio × the new design's initial value
+  - few-shot: the average of the design's 20 shot recipes
+
+All 3 × 3 × (1 + 4) = 45 training runs and all fine-tunings finished. Files are in `results/generalisation/`:
+`results_table.md`/`.csv`, `all_runs.csv`, `per_design.csv` (tau per design), `generalisation_bar.png`,
+`training_log.txt` and `kaggle_notebook.ipynb`.
+
+| Variant | Setting | tau AND | tau delay | MAPE AND % | MAPE delay % |
+|---|---|---|---|---|---|
+| m7_baseline | random | 0.093 ± 0.016 | 0.053 ± 0.014 | 3.00 ± 1.37 | 32.4 ± 4.3 |
+| m7_ratio | random | **0.271 ± 0.032** | **0.083 ± 0.011** | 0.98 ± 0.06 | 22.5 ± 2.0 |
+| m7_combined | random | 0.188 ± 0.024 | 0.072 ± 0.007 | 0.99 ± 0.08 | 20.4 ± 5.7 |
+| reference: design's training average | random | — | — | **0.92** | **11.2** |
+| m7_baseline | unseen | 0.057 ± 0.003 | -0.018 ± 0.008 | 174.6 ± 3.9 | 1056 ± 66 |
+| m7_ratio | unseen | **0.184 ± 0.010** | -0.014 ± 0.007 | 16.4 ± 0.2 | 304 ± 25 |
+| m7_combined | unseen | 0.135 ± 0.006 | -0.004 ± 0.016 | 13.9 ± 0.3 | 198 ± 10 |
+| reference: average ratio of training designs | unseen | — | — | **10.8** | **128** |
+| m7_baseline | few_shot | 0.085 ± 0.007 | 0.004 ± 0.011 | 3.35 ± 0.33 | 33.7 ± 16.5 |
+| m7_ratio | few_shot | 0.202 ± 0.028 | 0.023 ± 0.010 | 1.07 ± 0.17 | 24.2 ± 1.9 |
+| m7_combined | few_shot | **0.224 ± 0.015** | **0.056 ± 0.004** | **0.85 ± 0.03** | 17.5 ± 1.7 |
+| reference: average of the 20 shots | few_shot | — | — | 0.96 | **10.9** |
+
+Top-10 overlap is in the results files. It is near chance everywhere outside the random split (chance is
+10/1480 ≈ 0.007 for unseen/few-shot and 10/225 ≈ 0.044 for random), so it is left out here.
+
+**What this shows**
+
+1. **AND ranking partly transfers to unseen circuits, but only with ratio targets.** With ratio targets, tau
+   drops from 0.27 on seen designs to 0.18 on unseen ones: it is lower, but clearly above zero and stable across
+   seeds (± 0.01). It works for most held-out designs (Rocket_csr 0.30, s38417 0.33, fir 0.29, tv80 0.28) but
+   not for i2c, or1200_multmac and sha256 (≈ 0). With raw targets (m7_baseline) tau on unseen designs is only
+   0.06, and the AND MAPE is 175%: a raw-target model has only learned the sizes of its training designs and
+   has no idea of a new design's scale. Ratio targets express the result relative to the design's own starting
+   size, which is known for any new circuit. This is the main reason the ratio idea matters.
+2. **Predicting the *level* of an unseen design is still poor.** Even with ratio targets, AND MAPE on unseen
+   designs (14–16%) is worse than the simple reference (10.8%). The model ranks recipes better than chance but
+   cannot say where a new design's results will lie.
+3. **Delay does not transfer at all.** Delay tau on unseen designs is about 0 for every variant, and delay MAPE
+   is in the hundreds of %. The cause is in the data: final delay divided by the initial logic depth varies
+   more than 20-fold between designs (about 24 for fir and iir, 150 for Rocket_csr, 549 for sha256, whose delay
+   ranges from 10k to 155k), while final/initial AND only ranges from 0.62 to 0.94. So for delay, "ratio"
+   does not put the designs on a common scale, and the training designs say little about a new one. Even
+   the reference guess is off by 128%, and it is not one outlier: removing sha256 does not lower it (132%).
+   Even on seen designs, every model's delay MAPE (20–32%) is worse than the design-average guess (11%).
+   Delay ranking on seen designs is weak too (tau 0.05–0.08), except for sha256 (≈ 0.49 in all variants),
+   whose delay varies hugely with the recipe.
+4. **Few-shot fine-tuning on 20 recipes fixes most of the level error, and helps ranking for the combined
+   model.**
+   - *Level:* AND MAPE falls from 16.4% to 1.1% (ratio) and from 13.9% to 0.85% (combined). The 20 shots
+     tell the model where the new design's results lie.
+   - *Ranking:* tau improves a little for ratio (0.18 → 0.20) and clearly for combined (0.135 → 0.224).
+   - *Reference:* combined + few-shot is the only model that beats the "average of the 20 shots" reference
+     on AND MAPE (0.85% vs 0.96%), as well as ranking (which the reference cannot do at all). No model beats
+     the references on delay MAPE.
+5. **The M6 gains do not simply add up.** On seen designs, combined (ratio + GIN + transformer) ranks worse
+   than ratio alone (0.19 vs 0.27). In M6, GIN and the transformer were each tested with raw targets on
+   4 designs; with ratio targets on 12 designs the extra capacity did not help. After fine-tuning, combined
+   is the best model (0.224), so its larger encoders may adapt better from a few examples. With 3 seeds this
+   is a hint, not a proof.
+
+**Caveats**
+- The random-split tau is measured on 225 recipes per design, the others on 1,480 (the same recipes for unseen
+  and few-shot), so random vs unseen is a slightly different test.
+- In the by-design split, early stopping uses validation recipes of the *training* designs, so it does not
+  know how well the model does on unseen designs.
+- The fine-tuning settings (100 steps, lr 1e-3) were fixed in advance, not tuned. A held-out design has no
+  validation data to tune them on.
+- 12 training designs is still few. The OpenABC-D paper trains on many more, and generalisation would likely
+  improve with more designs.
+- The M7 random-split numbers differ from M6 (e.g. ratio tau 0.27 vs 0.46) because the design set
+  (12 vs 4) and batch size (64 vs 32) changed. M7 rows are comparable with each other, not with M6.
+
+**Bug found on Kaggle (fixed after the run):** the quick test cell reported 1 failed test
+(`test_runner_builds_table_and_keeps_the_split_fixed_across_seeds`). After the batching speed-up, a 1-epoch
+test run takes under a second on the GPU. Two runs with the same name could start within the same second, and
+run folders were named by the time to the second, so the second folder already existed. The real experiment
+runs take minutes and were not affected (all 27 settings finished). Fix: `make_run_dir` adds `_2`, `_3`, …
+when the folder exists, with a new test.
